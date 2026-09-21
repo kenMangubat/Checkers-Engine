@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkers Engine</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app">
+        <header class="top">
+            <div>
+                <h1>Checkers Engine</h1>
+                <p class="subtitle">International rules on an 8×8 board</p>
+            </div>
+            <div class="top-actions">
+                <button type="button" id="btn-rules" class="ghost">Rules</button>
+                <button type="button" id="btn-new">New game</button>
+            </div>
+        </header>
+
+        <div class="layout">
+            <aside class="panel">
+                <h2>Captured</h2>
+                <div class="captured-row">
+                    <span class="label">White took</span>
+                    <div id="captured-by-white" class="captured-tray"></div>
+                </div>
+                <div class="captured-row">
+                    <span class="label">Black took</span>
+                    <div id="captured-by-black" class="captured-tray"></div>
+                </div>
+                <h2>Position</h2>
+                <dl class="stats">
+                    <div>
+                        <dt>White</dt>
+                        <dd id="count-white">12</dd>
+                    </div>
+                    <div>
+                        <dt>Black</dt>
+                        <dd id="count-black">12</dd>
+                    </div>
+                    <div>
+                        <dt>Repeats</dt>
+                        <dd id="count-reps">0 / 3</dd>
+                    </div>
+                </dl>
+            </aside>
+
+            <main class="board-column">
+                <div id="status" class="status">White to move</div>
+                <div class="board-frame">
+                    <div id="board" class="board" role="grid" aria-label="Checkers board"></div>
+                </div>
+                <p id="hint" class="hint"></p>
+            </main>
+
+            <aside class="panel">
+                <h2>Play</h2>
+                <label class="mode">
+                    Opponent
+                    <select id="mode">
+                        <option value="ai">Computer (Black)</option>
+                        <option value="human">Two players</option>
+                    </select>
+                </label>
+                <label class="mode">
+                    Engine depth
+                    <select id="depth">
+                        <option value="4">Fast</option>
+                        <option value="6" selected>Normal</option>
+                        <option value="8">Strong</option>
+                    </select>
+                </label>
+                <div class="btn-row">
+                    <button type="button" id="btn-undo" class="ghost">Undo</button>
+                    <button type="button" id="btn-hint" class="ghost">Hint</button>
+                </div>
+                <p id="engine-line" class="engine-line">Engine idle</p>
+            </aside>
+        </div>
+    </div>
+
+    <dialog id="rules-dialog">
+        <form method="dialog">
+            <h2>Rules</h2>
+            <ul>
+                <li><strong>Movement.</strong> Men move one square diagonally forward. They capture both forward and
+                    backward.</li>
+                <li><strong>Mandatory capture.</strong> If a capture exists, it must be taken. When several captures are
+                    possible, the sequence that takes the most pieces is required.</li>
+                <li><strong>Flying kings.</strong> Kings move and capture any distance along a diagonal.</li>
+                <li><strong>Promotion.</strong> A man becomes a king only if the move ends on the far row. Passing
+                    through that row in a multi-capture does not crown it.</li>
+                <li><strong>Winning.</strong> Capture every opposing piece, or leave the opponent with no legal move.
+                </li>
+                <li><strong>Draws.</strong> Threefold repetition of the same position, or king endgames of 1 vs 1, 2 vs
+                    1, or 3 vs 1.</li>
+            </ul>
+            <button value="close">Close</button>
+        </form>
+    </dialog>
+
+    <script src="checkers.js"></script>
+</body>
+
+</html>
