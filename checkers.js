@@ -11,9 +11,10 @@
     const statusEl = document.getElementById("status");
     const hintEl = document.getElementById("hint");
     const engineEl = document.getElementById("engine-line");
-    const modeEl = document.getElementById("mode");
     const depthEl = document.getElementById("depth");
+    const showBestEl = document.getElementById("show-best");
     const rulesDialog = document.getElementById("rules-dialog");
+    const bestMoveLine = document.getElementById("best-move-line");
 
     let board;
     let turn;
@@ -23,7 +24,9 @@
     let prefix;
     let legal;
     let over;
-    let aiBusy;
+    let flipped = false;
+    let currentBestMove = null;
+    let positionVersion = 0;
 
     function inBounds(r, c) {
         return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
@@ -272,12 +275,11 @@
         over = resultOf(board, turn, posCounts);
         if (over.over) legal = [];
         render();
-        if (!over.over) maybeAi();
+        scheduleAnalysis();
     }
 
     function squareClick(r, c) {
-        if (over?.over || aiBusy) return;
-        if (modeEl.value === "ai" && turn === "b") return;
+        if (over?.over) return;
 
         if (!selected && board[r][c]?.color === turn && legal.some((m) => m.from[0] === r && m.from[1] === c)) {
             selected = [r, c];
@@ -320,13 +322,11 @@
     }
 
     function undo() {
-        if (aiBusy || !history.length) return;
-        const plies = modeEl.value === "ai" && history.length >= 2 ? 2 : 1;
-        for (let i = 0; i < plies; i++) {
-            history.pop();
-        }
+        if (!history.length) return;
+        history.pop();
         rebuildFromHistory();
         render();
+        scheduleAnalysis();
     }
 
     function rebuildFromHistory() {
@@ -358,7 +358,6 @@
                 if (r > 1 && r < 6 && c > 1 && c < 6) score += 3 * s;
             }
         }
-        score += (allMoves(b, "w").length - allMoves(b, "b").length) * 2;
         return color === "w" ? score : -score;
     }
 
@@ -380,79 +379,102 @@
         return best;
     }
 
-    function maybeAi() {
-        if (over?.over || modeEl.value !== "ai" || turn !== "b") return;
-        aiBusy = true;
-        engineEl.textContent = "Engine thinking…";
+    function toDisplay(r, c) {
+        return flipped ? [SIZE - 1 - r, SIZE - 1 - c] : [r, c];
+    }
+
+    function scheduleAnalysis() {
+        positionVersion += 1;
+        const myVersion = positionVersion;
+        currentBestMove = null;
+
+        if (over?.over) {
+            engineEl.textContent = "Game over";
+            render();
+            return;
+        }
+        if (!showBestEl.checked) {
+            engineEl.textContent = "Best-move arrow off";
+            render();
+            return;
+        }
+
+        engineEl.textContent = "Analyzing…";
         render();
-        const depth = Number(depthEl.value);
-        const snapshot = cloneBoard(board);
+
+        const snapshotBoard = cloneBoard(board);
         const side = turn;
+        const depth = Number(depthEl.value);
+
         setTimeout(() => {
-            const { move, score } = search(snapshot, side, depth, -Infinity, Infinity);
-            aiBusy = false;
-            if (!move) {
-                over = resultOf(board, turn, posCounts);
+            if (myVersion !== positionVersion) return;
+            const result = search(snapshotBoard, side, depth, -Infinity, Infinity);
+            if (myVersion !== positionVersion) return;
+            if (!result.move) {
+                engineEl.textContent = "No legal moves to analyze";
+                currentBestMove = null;
                 render();
                 return;
             }
-            engineEl.textContent = "Engine eval " + (score / 100).toFixed(2);
-            playMove(move);
-        }, 30);
+            currentBestMove = result.move;
+            const whiteScore = side === "w" ? result.score : -result.score;
+            const sign = whiteScore >= 0 ? "+" : "";
+            engineEl.textContent =
+                "Eval " + sign + (whiteScore / 100).toFixed(2) + " (White) · depth " + depth;
+            render();
+        }, 20);
     }
 
-    function hintMove() {
-        if (over?.over || aiBusy) return;
-        const depth = Math.min(4, Number(depthEl.value));
-        const { move } = search(cloneBoard(board), turn, depth, -Infinity, Infinity);
-        if (!move) return;
-        selected = move.from.slice();
-        prefix = [];
-        hintEl.textContent =
-            "Hint: " + sqName(move.from[0], move.from[1]) + " → " + sqName(move.path.at(-1).r, move.path.at(-1).c);
-        render(move);
+    function renderArrow() {
+        if (!showBestEl.checked || !currentBestMove || over?.over || selected) {
+            bestMoveLine.setAttribute("points", "");
+            return;
+        }
+        const move = currentBestMove;
+        const points = [move.from, ...move.path.map((s) => [s.r, s.c])];
+        const displayPoints = points.map(([r, c]) => {
+            const [dr, dc] = toDisplay(r, c);
+            return dc + 0.5 + "," + (dr + 0.5);
+        });
+        bestMoveLine.setAttribute("points", displayPoints.join(" "));
     }
 
-    function sqName(r, c) {
-        return "abcdefgh"[c] + (8 - r);
-    }
-
-    function render(hintOnly) {
+    function render() {
         const shown = viewBoard();
         boardEl.innerHTML = "";
         const destSet = new Set();
         const originSet = new Set();
         const jumpSet = new Set();
-        const pool = hintOnly ? [hintOnly] : selected ? matchingMoves() : [];
-        if (!selected && !hintOnly && legal[0]?.captured.length) {
+        const pool = selected ? matchingMoves() : [];
+        if (!selected && legal[0]?.captured.length) {
             for (const m of legal) originSet.add(capKey(m.from[0], m.from[1]));
         }
         for (const m of pool) {
             originSet.add(capKey(m.from[0], m.from[1]));
             const step = m.path[prefix.length];
             if (step) destSet.add(capKey(step.r, step.c));
-            if (selected) {
-                for (const part of m.path) {
-                    for (const [vr, vc] of part.victims) jumpSet.add(capKey(vr, vc));
-                }
+            for (const part of m.path) {
+                for (const [vr, vc] of part.victims) jumpSet.add(capKey(vr, vc));
             }
         }
 
-        for (let r = 0; r < SIZE; r++) {
-            for (let c = 0; c < SIZE; c++) {
+        for (let dr = 0; dr < SIZE; dr++) {
+            for (let dc = 0; dc < SIZE; dc++) {
+                const r = flipped ? SIZE - 1 - dr : dr;
+                const c = flipped ? SIZE - 1 - dc : dc;
                 const sq = document.createElement("div");
                 sq.className = "sq " + ((r + c) % 2 === 0 ? "light" : "dark");
                 const k = capKey(r, c);
                 if (originSet.has(k) && prefix.length === 0) sq.classList.add("origin");
                 if (destSet.has(k)) sq.classList.add("dest");
                 if (jumpSet.has(k)) sq.classList.add("jump");
-                if (c === 0) {
+                if (dc === 0) {
                     const rank = document.createElement("span");
                     rank.className = "coord rank";
                     rank.textContent = String(8 - r);
                     sq.appendChild(rank);
                 }
-                if (r === SIZE - 1) {
+                if (dr === SIZE - 1) {
                     const file = document.createElement("span");
                     file.className = "coord file";
                     file.textContent = "abcdefgh"[c];
@@ -477,6 +499,7 @@
         document.getElementById("count-black").textContent = String(n.b);
         document.getElementById("count-reps").textContent = (posCounts[posKey(board, turn)] || 1) + " / 3";
         renderCaptures(n);
+        renderArrow();
 
         if (over?.over) {
             statusEl.classList.add("over");
@@ -487,8 +510,7 @@
             return;
         }
         statusEl.classList.remove("over");
-        statusEl.textContent = (turn === "w" ? "White" : "Black") + (aiBusy ? " (thinking)" : " to move");
-        if (hintOnly) return;
+        statusEl.textContent = (turn === "w" ? "White" : "Black") + " to move";
         const capN = legal[0]?.captured.length || 0;
         hintEl.textContent = prefix.length
             ? "Continue the capture. The longest sequence is required."
@@ -519,20 +541,22 @@
         selected = null;
         prefix = [];
         over = null;
-        aiBusy = false;
+        currentBestMove = null;
         posCounts = { [posKey(board, turn)]: 1 };
         legal = allMoves(board, turn);
-        engineEl.textContent = "Engine idle";
         render();
+        scheduleAnalysis();
     }
 
     document.getElementById("btn-new").addEventListener("click", reset);
     document.getElementById("btn-undo").addEventListener("click", undo);
-    document.getElementById("btn-hint").addEventListener("click", hintMove);
     document.getElementById("btn-rules").addEventListener("click", () => rulesDialog.showModal());
-    modeEl.addEventListener("change", reset);
-
-    reset();
+    document.getElementById("btn-flip").addEventListener("click", () => {
+        flipped = !flipped;
+        render();
+    });
+    depthEl.addEventListener("change", () => scheduleAnalysis());
+    showBestEl.addEventListener("change", () => scheduleAnalysis());
 
     reset();
 })();

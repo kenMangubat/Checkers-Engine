@@ -52,33 +52,42 @@
             <main class="board-column">
                 <div id="status" class="status">White to move</div>
                 <div class="board-frame">
-                    <div id="board" class="board" role="grid" aria-label="Checkers board"></div>
+                    <div class="board-wrap">
+                        <div id="board" class="board" role="grid" aria-label="Checkers board"></div>
+                        <svg id="arrow-layer" class="arrow-layer" viewBox="0 0 8 8" preserveAspectRatio="none" aria-hidden="true">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="3" markerHeight="3" refX="3" refY="1.5" orient="auto" markerUnits="strokeWidth">
+                                    <path d="M0,0 L3,1.5 L0,3 Z" fill="#4ee18a"></path>
+                                </marker>
+                            </defs>
+                            <polyline id="best-move-line" points="" fill="none" stroke="#4ee18a" stroke-width="0.12" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowhead)" opacity="0.92"></polyline>
+                        </svg>
+                    </div>
                 </div>
                 <p id="hint" class="hint"></p>
             </main>
 
             <aside class="panel">
-                <h2>Play</h2>
+                <h2>Analysis</h2>
                 <label class="mode">
-                    Opponent
-                    <select id="mode">
-                        <option value="ai">Computer (Black)</option>
-                        <option value="human">Two players</option>
+                    Search depth
+                    <select id="depth">
+                        <option value="4">4 plies</option>
+                        <option value="6">6 plies</option>
+                        <option value="8" selected>8 plies</option>
+                        <option value="10">10 plies</option>
+                        <option value="12">12 plies</option>
                     </select>
                 </label>
-                <label class="mode">
-                    Engine depth
-                    <select id="depth">
-                        <option value="4">Fast</option>
-                        <option value="6" selected>Normal</option>
-                        <option value="8">Strong</option>
-                    </select>
+                <label class="mode checkbox-row">
+                    <input type="checkbox" id="show-best" checked>
+                    Show best-move arrow
                 </label>
                 <div class="btn-row">
+                    <button type="button" id="btn-flip" class="ghost">Flip board</button>
                     <button type="button" id="btn-undo" class="ghost">Undo</button>
-                    <button type="button" id="btn-hint" class="ghost">Hint</button>
                 </div>
-                <p id="engine-line" class="engine-line">Engine idle</p>
+                <p id="engine-line" class="engine-line">Analyzing…</p>
             </aside>
         </div>
     </div>
